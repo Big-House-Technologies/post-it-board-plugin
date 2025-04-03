@@ -25,8 +25,8 @@ function(instance, properties, context) {
         }
 
         const boardRect = board.getBoundingClientRect();
-        const x = event.clientX - boardRect.left;
-        const y = event.clientY - boardRect.top;
+        const x = Math.round(event.clientX - boardRect.left);
+        const y = Math.round(event.clientY - boardRect.top);
 
         console.log("🖱 Click at:", x, y);
 
@@ -81,8 +81,8 @@ function(instance, properties, context) {
                 const maxX = boardRect.width - postItWidth;
                 const maxY = boardRect.height - postItHeight;
 
-                const constrainedX = Math.max(minX, Math.min(newX, maxX));
-                const constrainedY = Math.max(minY, Math.min(newY, maxY));
+                const constrainedX = Math.round(Math.max(minX, Math.min(newX, maxX)));
+                const constrainedY = Math.round(Math.max(minY, Math.min(newY, maxY)));
 
                 console.log(`📍 Dragging: ${constrainedX}, ${constrainedY} | Bounds: (${minX}, ${maxX}), (${minY}, ${maxY})`);
 
