@@ -21,7 +21,7 @@ function(instance, properties, context) {
     board.addEventListener("click", function(event) {
         if (event.target.classList.contains("post-it")) {
             console.log("🔹 Clicked on an existing Post-It. Skipping creation.");
-            return; 
+            return;
         }
 
         const boardRect = board.getBoundingClientRect();
@@ -49,8 +49,6 @@ function(instance, properties, context) {
 
         board.appendChild(postIt);
 
-        // ✅ Fix: Use properties.postItId instead of storing it manually
-        instance.publishState("postItId", properties.postItId || "");
         instance.publishState("postItX", x);
         instance.publishState("postItY", y);
         instance.publishState("postItText", "New Post-It");
@@ -70,15 +68,29 @@ function(instance, properties, context) {
 
         document.addEventListener("mousemove", function(e) {
             if (isDragging) {
+                const boardRect = board.getBoundingClientRect();
+                const postItWidth = postIt.clientWidth;
+                const postItHeight = postIt.clientHeight;
+
                 const newX = e.clientX - offsetX;
                 const newY = e.clientY - offsetY;
-                postIt.style.left = newX + "px";
-                postIt.style.top = newY + "px";
 
-                console.log("➡ Moving Post-It to:", newX, newY);
+                // 🔹 Enforce boundaries (prevent dragging outside the canvas)
+                const minX = 0;
+                const minY = 0;
+                const maxX = boardRect.width - postItWidth;
+                const maxY = boardRect.height - postItHeight;
 
-                instance.publishState("postItX", newX);
-                instance.publishState("postItY", newY);
+                const constrainedX = Math.max(minX, Math.min(newX, maxX));
+                const constrainedY = Math.max(minY, Math.min(newY, maxY));
+
+                console.log(`📍 Dragging: ${constrainedX}, ${constrainedY} | Bounds: (${minX}, ${maxX}), (${minY}, ${maxY})`);
+
+                postIt.style.left = constrainedX + "px";
+                postIt.style.top = constrainedY + "px";
+
+                instance.publishState("postItX", constrainedX);
+                instance.publishState("postItY", constrainedY);
             }
         });
 
