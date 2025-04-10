@@ -18,9 +18,9 @@ function(instance, properties, context) {
     board.style.position = "relative";
     console.log("✅ Post-It Board found and ready.");
 
-    // Ensure existingPostIts is an array
-    const existingPostIts = Array.isArray(properties.existingPostIts) ? properties.existingPostIts : [];
-    if (existingPostIts.length === 0) {
+    // Ensure existingPostItObjects is an array
+    const existingPostItObjects = Array.isArray(properties.existingPostItObjects) ? properties.existingPostItObjects : [];
+    if (existingPostItObjects.length === 0) {
         console.log("🔹 No existing Post-Its to render.");
     }
 
@@ -55,7 +55,7 @@ function(instance, properties, context) {
     }
 
     // Render existing Post-Its
-    existingPostIts.forEach(postItObject => {
+    existingPostItObjects.forEach(postItObject => {
         const x = postItObject[properties.xField] || 0;
         const y = postItObject[properties.yField] || 0;
         const postItId = postItObject[properties.postItObject].id || "pi_" + Math.random().toString(36).substr(2, 14);
