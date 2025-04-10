@@ -58,11 +58,26 @@ function(instance, properties, context) {
     existingPostIts.forEach(postItObject => {
         const x = postItObject[properties.xField] || 0;
         const y = postItObject[properties.yField] || 0;
+        const postItId = postItObject[properties.postItObject].id || "pi_" + Math.random().toString(36).substr(2, 14);
 
         console.log(`🖱 Rendering existing Post-It at: ${x}, ${y}`);
 
-        const postIt = createPostIt(x, y, postItObject[properties.textField] || "Existing Post-It", postItObject[properties.postItObject].id);
+        const postIt = createPostIt(x, y, postItObject[properties.textField] || "Existing Post-It", postItId);
         board.appendChild(postIt);
+
+        // Add click event to expose all states when clicking an existing Post-It
+        postIt.addEventListener("click", function() {
+            console.log("🔹 Clicked on an existing Post-It.");
+
+            // Expose the Post-It states
+            instance.publishState("postItX", x);
+            instance.publishState("postItY", y);
+            instance.publishState("postItText", postIt.innerText);
+            instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
+
+            instance.triggerEvent("postItClicked");
+            console.log("✅ Triggered 'postItClicked' event.");
+        });
 
         // Add drag behavior for existing Post-Its
         enableDrag(postIt, instance, board);
@@ -132,8 +147,11 @@ function(instance, properties, context) {
                 postIt.style.left = constrainedX + "px";
                 postIt.style.top = constrainedY + "px";
 
+                // Expose the updated position and states when dragging
                 instance.publishState("postItX", constrainedX);
                 instance.publishState("postItY", constrainedY);
+                instance.publishState("postItText", postIt.innerText);
+                instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
             }
         });
 
@@ -143,15 +161,19 @@ function(instance, properties, context) {
                 postIt.style.cursor = "grab";
                 isDragging = false;
 
-                instance.triggerEvent("postItMoved");
-                console.log("✅ Triggered 'postItMoved' event.");
+                // Trigger the consolidated postItUpdated event
+                instance.triggerEvent("postItUpdated");
+                console.log("✅ Triggered 'postItUpdated' event.");
             }
         });
 
         // Handle text edits for the post-it
         postIt.addEventListener("input", function() {
             console.log("✏ Editing Post-It:", postIt.innerText);
+
+            // Expose the updated text and states
             instance.publishState("postItText", postIt.innerText);
+            instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
             instance.triggerEvent("postItUpdated");
             console.log("✅ Triggered 'postItUpdated' event.");
         });
