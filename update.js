@@ -36,6 +36,24 @@ function(instance, properties, context) {
         userSelect: "none"
     };
 
+    // Function to create a new Post-It (both for existing and new)
+    function createPostIt(x, y, text, postItId) {
+        const postIt = document.createElement("div");
+        postIt.classList.add("post-it");
+
+        // Apply the common styles to the Post-It
+        Object.assign(postIt.style, postItStyle);
+        postIt.contentEditable = "true";
+        postIt.innerText = text;
+
+        postIt.setAttribute("data-postit-id", postItId);
+
+        postIt.style.left = x + "px";
+        postIt.style.top = y + "px";
+
+        return postIt;
+    }
+
     // Render existing Post-Its
     existingPostIts.forEach(postItObject => {
         const x = postItObject[properties.xField] || 0;
@@ -43,25 +61,7 @@ function(instance, properties, context) {
 
         console.log(`🖱 Rendering existing Post-It at: ${x}, ${y}`);
 
-        const postIt = document.createElement("div");
-        postIt.classList.add("post-it");
-        postIt.style.position = postItStyle.position;
-        postIt.style.width = postItStyle.width;
-        postIt.style.height = postItStyle.height;
-        postIt.style.background = postItStyle.background;
-        postIt.style.border = postItStyle.border;
-        postIt.style.padding = postItStyle.padding;
-        postIt.style.cursor = postItStyle.cursor;
-        postIt.style.userSelect = postItStyle.userSelect;
-        postIt.contentEditable = "true";
-        postIt.innerText = postItObject[properties.textField] || "Existing Post-It";
-
-        // Set the unique Post-It ID
-        postIt.setAttribute("data-postit-id", postItObject[properties.postItObject].id); // Assuming 'id' is the field containing the Post-It's unique identifier
-
-        postIt.style.left = x + "px";
-        postIt.style.top = y + "px";
-
+        const postIt = createPostIt(x, y, postItObject[properties.textField] || "Existing Post-It", postItObject[properties.postItObject].id);
         board.appendChild(postIt);
 
         // Add drag behavior for existing Post-Its
@@ -81,26 +81,8 @@ function(instance, properties, context) {
 
         console.log("🖱 Click at:", x, y);
 
-        const postIt = document.createElement("div");
-        postIt.classList.add("post-it");
-        postIt.style.position = postItStyle.position;
-        postIt.style.width = postItStyle.width;
-        postIt.style.height = postItStyle.height;
-        postIt.style.background = postItStyle.background;
-        postIt.style.border = postItStyle.border;
-        postIt.style.padding = postItStyle.padding;
-        postIt.style.cursor = postItStyle.cursor;
-        postIt.style.userSelect = postItStyle.userSelect;
-        postIt.contentEditable = "true";
-        postIt.innerText = "New Post-It";
-
-        // Create a unique ID for the Post-It
-        const postItId = "pi_" + Math.random().toString(36).substr(2, 14); // Generates a unique 16-character ID starting with 'pi_'
-        postIt.setAttribute("data-postit-id", postItId);
-        console.log("📌 Creating Post-It with ID:", postItId);
-
-        postIt.style.left = x + "px";
-        postIt.style.top = y + "px";
+        // Create a new Post-It
+        const postIt = createPostIt(x, y, "New Post-It", "pi_" + Math.random().toString(36).substr(2, 14));
 
         board.appendChild(postIt);
 
@@ -108,7 +90,7 @@ function(instance, properties, context) {
         instance.publishState("postItX", x);
         instance.publishState("postItY", y);
         instance.publishState("postItText", "New Post-It");
-        instance.publishState("postItId", postItId); // Store unique ID in state
+        instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
         instance.triggerEvent("postItCreated");
 
         console.log("✅ Triggered 'postItCreated' event.");
