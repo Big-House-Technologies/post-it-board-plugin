@@ -1,5 +1,8 @@
 function(instance, properties, context) {
-    console.log("✅ Initializing Post-It Board...");
+    if (instance.data.initialized) return; // Prevent running multiple times
+    instance.data.initialized = true;
+
+    console.log("✅ Updating Post-It Board...");
 
     const canvasID = properties.canvasID;
     console.log("🔹 Canvas ID:", canvasID);
@@ -18,13 +21,11 @@ function(instance, properties, context) {
     board.style.position = "relative";
     console.log("✅ Post-It Board found and ready.");
 
-    // Ensure existingPostItObjects is an array
     const existingPostItObjects = Array.isArray(properties.existingPostItObjects) ? properties.existingPostItObjects : [];
     if (existingPostItObjects.length === 0) {
         console.log("🔹 No existing Post-Its to render.");
     }
 
-    // Define the common styles for all Post-Its
     const postItStyle = {
         position: "absolute",
         width: "100px",
@@ -36,12 +37,10 @@ function(instance, properties, context) {
         userSelect: "none"
     };
 
-    // Function to create a new Post-It (both for existing and new)
     function createPostIt(x, y, text, postItId) {
         const postIt = document.createElement("div");
         postIt.classList.add("post-it");
 
-        // Apply the common styles to the Post-It
         Object.assign(postIt.style, postItStyle);
         postIt.contentEditable = "true";
         postIt.innerText = text;
@@ -54,22 +53,20 @@ function(instance, properties, context) {
         return postIt;
     }
 
-    // Render existing Post-Its
     existingPostItObjects.forEach(postItObject => {
         const x = postItObject[properties.xField] || 0;
         const y = postItObject[properties.yField] || 0;
-        const postItId = postItObject[properties.postItObject].id || "pi_" + Math.random().toString(36).substr(2, 14);
+        const postItId = postItObject[properties.postItId] || "pi_" + Math.random().toString(36).substr(2, 12);
+        const text = postItObject[properties.textField] || "Existing Post-It";
 
         console.log(`🖱 Rendering existing Post-It at: ${x}, ${y}`);
 
-        const postIt = createPostIt(x, y, postItObject[properties.textField] || "Existing Post-It", postItId);
+        const postIt = createPostIt(x, y, text, postItId);
         board.appendChild(postIt);
 
-        // Add click event to expose all states when clicking an existing Post-It
         postIt.addEventListener("click", function() {
             console.log("🔹 Clicked on an existing Post-It.");
 
-            // Expose the Post-It states
             instance.publishState("postItX", x);
             instance.publishState("postItY", y);
             instance.publishState("postItText", postIt.innerText);
@@ -79,42 +76,41 @@ function(instance, properties, context) {
             console.log("✅ Triggered 'postItClicked' event.");
         });
 
-        // Add drag behavior for existing Post-Its
         enableDrag(postIt, instance, board);
     });
 
-    // Add click event to create new Post-Its
-    board.addEventListener("click", function(event) {
-        if (event.target.classList.contains("post-it")) {
-            console.log("🔹 Clicked on an existing Post-It. Skipping creation.");
-            return;
-        }
+    if (!instance.data.eventAttached) {
+        board.addEventListener("click", function(event) {
+            if (event.target.classList.contains("post-it")) {
+                console.log("🔹 Clicked on an existing Post-It. Skipping creation.");
+                return;
+            }
 
-        const boardRect = board.getBoundingClientRect();
-        const x = Math.round(event.clientX - boardRect.left);
-        const y = Math.round(event.clientY - boardRect.top);
+            const boardRect = board.getBoundingClientRect();
+            const x = Math.round(event.clientX - boardRect.left);
+            const y = Math.round(event.clientY - boardRect.top);
 
-        console.log("🖱 Click at:", x, y);
+            console.log("🖱 Click at:", x, y);
 
-        // Create a new Post-It
-        const postIt = createPostIt(x, y, "New Post-It", "pi_" + Math.random().toString(36).substr(2, 14));
+            const newPostItId = "pi_" + Math.random().toString(36).substr(2, 12);
+            const postIt = createPostIt(x, y, "New Post-It", newPostItId);
 
-        board.appendChild(postIt);
+            board.appendChild(postIt);
 
-        // Publish state for the newly created post-it
-        instance.publishState("postItX", x);
-        instance.publishState("postItY", y);
-        instance.publishState("postItText", "New Post-It");
-        instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
-        instance.triggerEvent("postItCreated");
+            instance.publishState("postItX", x);
+            instance.publishState("postItY", y);
+            instance.publishState("postItText", "New Post-It");
+            instance.publishState("postItId", newPostItId);
+            instance.triggerEvent("postItCreated");
 
-        console.log("✅ Triggered 'postItCreated' event.");
+            console.log("✅ Triggered 'postItCreated' event.");
 
-        // Enable drag functionality for the new Post-It
-        enableDrag(postIt, instance, board);
-    });
+            enableDrag(postIt, instance, board);
+        });
 
-    // Helper function to enable dragging for Post-Its (both new and existing)
+        instance.data.eventAttached = true;
+    }
+
     function enableDrag(postIt, instance, board) {
         let offsetX, offsetY, isDragging = false;
 
@@ -135,7 +131,6 @@ function(instance, properties, context) {
                 const newX = e.clientX - offsetX;
                 const newY = e.clientY - offsetY;
 
-                // Enforce boundaries (prevent dragging outside the canvas)
                 const minX = 0;
                 const minY = 0;
                 const maxX = boardRect.width - postItWidth;
@@ -147,7 +142,6 @@ function(instance, properties, context) {
                 postIt.style.left = constrainedX + "px";
                 postIt.style.top = constrainedY + "px";
 
-                // Expose the updated position and states when dragging
                 instance.publishState("postItX", constrainedX);
                 instance.publishState("postItY", constrainedY);
                 instance.publishState("postItText", postIt.innerText);
@@ -161,17 +155,14 @@ function(instance, properties, context) {
                 postIt.style.cursor = "grab";
                 isDragging = false;
 
-                // Trigger the consolidated postItUpdated event
                 instance.triggerEvent("postItUpdated");
                 console.log("✅ Triggered 'postItUpdated' event.");
             }
         });
 
-        // Handle text edits for the post-it
         postIt.addEventListener("input", function() {
             console.log("✏ Editing Post-It:", postIt.innerText);
 
-            // Expose the updated text and states
             instance.publishState("postItText", postIt.innerText);
             instance.publishState("postItId", postIt.getAttribute("data-postit-id"));
             instance.triggerEvent("postItUpdated");
