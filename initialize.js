@@ -1,5 +1,4 @@
 function(instance, context) {
-    console.log("✅ Initializing Post-It Board...");
 
     if (!instance.data) instance.data = {};
 
@@ -7,8 +6,7 @@ function(instance, context) {
     instance.data.postItY = 0;
     instance.data.postItText = "";
     instance.data.postItID = "";
-    instance.data.initialized = false;
     instance.data.eventAttached = false;
+    instance.data.has_initalized = false;
 
-    console.log("🔹 Post-It Board initialized with instance data:", instance.data);
 }
