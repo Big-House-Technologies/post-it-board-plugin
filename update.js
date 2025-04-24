@@ -79,37 +79,6 @@ function(instance, properties, context) {
       }
     }
     
-    // Load from Bubble Things API
-    if (properties.existingPostItObjects2 && typeof properties.existingPostItObjects2.get === "function") {
-      try {
-        const rawPostIts2 = loadAllBubbleList(properties.existingPostItObjects2);
-        console.log("🔹 Post-Data (Things):", rawPostIts2.length);
-        
-        if (rawPostIts2.length > 0 && typeof rawPostIts2[0].listProperties === "function") {
-          rawPostIts2.forEach(item => {
-            try {
-              if (typeof item.get === "function") {
-                const id = item.get("plugin_id_text");
-                if (id && !postItsData.has(id)) {
-                  postItsData.set(id, {
-                    id: id,
-                    x: item.get("x_position_number") || 0,
-                    y: item.get("y_position_number") || 0,
-                    text: sanitizeText(item.get("content_text") || "Post-It")
-                  });
-                }
-              }
-            } catch (err) {
-              console.warn("⚠️ Error processing Thing item:", err);
-            }
-          });
-        }
-      } catch (err) {
-        if (err.message === 'not ready') throw err;
-        console.warn("⚠️ Error processing Bubble objects2:", err);
-      }
-    }
-    
     console.log(`📊 Total unique post-its loaded: ${postItsData.size}`);
   };
   
@@ -229,10 +198,6 @@ function(instance, properties, context) {
       instance.publishState("postItY", parseInt(postIt.style.top));
       instance.publishState("postItText", postIt.innerText);
       instance.publishState("postItId", id);
-      
-      if (!alreadySelected) {
-        instance.triggerEvent("postItSelected");
-      }
       
       if (e) e.stopPropagation();
     };
