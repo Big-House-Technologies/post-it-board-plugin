@@ -352,7 +352,7 @@ function(instance, properties, context) {
       const y = event.clientY - rect.top;
       const newId = "pi_" + Math.random().toString(36).substr(2, 12);
       
-      const postItData = { id: newId, x, y, text: "New Post-It" };
+      const postItData = { id: newId, x, y, text: "[edit me]" };
       postItsData.set(newId, postItData);
       
       const postIt = createPostIt(postItData);
