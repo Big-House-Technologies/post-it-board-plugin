@@ -310,9 +310,9 @@ function(instance, properties, context) {
   // Create and render a post-it note
   const createPostIt = (postItData) => {
     if (!postItData || !postItData.id) return null;
-    
+  
     const id = postItData.id;
-    
+  
     if (postItElements[id]) {
       const existingPostIt = postItElements[id];
       existingPostIt.style.left = `${postItData.x}px`;
@@ -320,7 +320,7 @@ function(instance, properties, context) {
       existingPostIt.innerText = postItData.text;
       return existingPostIt;
     }
-    
+  
     const postIt = document.createElement("div");
     Object.assign(postIt.style, postItStyle);
     postIt.contentEditable = "true";
@@ -328,14 +328,48 @@ function(instance, properties, context) {
     postIt.style.left = `${postItData.x}px`;
     postIt.style.top = `${postItData.y}px`;
     postIt.setAttribute("data-postit-id", id);
-    
+  
+    // Add delete (X) button
+    const deleteBtn = document.createElement("div");
+    deleteBtn.innerHTML = "×";
+    Object.assign(deleteBtn.style, {
+      position: "absolute",
+      top: "2px",
+      right: "4px",
+      fontSize: "16px",
+      fontWeight: "bold",
+      cursor: "pointer",
+      zIndex: "1001",
+      color: "red",
+      backgroundColor: "transparent",
+      userSelect: "none"
+    });
+  
+    // Prevent the delete button from triggering drag or focus
+    deleteBtn.addEventListener("mousedown", e => e.stopPropagation());
+    deleteBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      board.removeChild(postIt);
+      delete postItElements[id];
+      postItsData.delete(id);
+      if (selectedPostIt === postIt) {
+        clearSelection();
+      }
+  
+      // Publish deletion state
+      instance.publishState("postItId", id);
+      instance.triggerEvent("postItDeleted");
+    });
+  
+    postIt.appendChild(deleteBtn);
     postItElements[id] = postIt;
     board.appendChild(postIt);
-    
+  
     setupPostItEvents(postIt, id);
-    
+  
     return postIt;
   };
+  
   
   // Set up board-level events
   const setupBoardEvents = () => {
