@@ -91,7 +91,7 @@ const postItStyle = {
   position: "absolute",
   width: "100px",
   height: "100px",
-  background: "yellow",
+  background: properties.post_it_background_color || "transparent",
   border: "1px solid black",
   padding: "10px",
   cursor: "grab",
