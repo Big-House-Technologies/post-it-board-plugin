@@ -384,9 +384,6 @@ function(instance, properties, context) {
   loadPostItData();
   postItsData.forEach((data) => createPostIt(data));
   setupBoardEvents();
-    
   instance.data.has_initialized = true;
-
-
   console.log(`📊 Created ${Object.keys(postItElements).length} post-its on the board`);
 }
