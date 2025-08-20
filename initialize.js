@@ -356,7 +356,7 @@ function(instance, context) {
         }));
     }));
 
-    const setInputValue = (element, selectedValue) => {
+    const setInputValue = (element, selectedValue, key) => {
         // How many types of element: Input, Select, Button, Map
         // For Button => selected - active - otw setInactiveStyle
         // For Input/Select => if type color => default value: #00000/''
@@ -371,7 +371,14 @@ function(instance, context) {
                 }
             })
         } else if (element instanceof HTMLButtonElement) {
-            selectedValue ? setActiveStyle(element) : setInactiveStyle(element);
+            let isSelected = !!selectedValue;
+            if (key === 'text-decoration') {
+                isSelected = selectedValue !== 'none' && selectedValue;
+            } else if (key === 'font-style' || key === 'font-weight') {
+                isSelected = selectedValue !== 'normal' && selectedValue;
+            }
+            // For other buttons, we assume they are toggle buttons
+            isSelected ? setActiveStyle(element) : setInactiveStyle(element);
         }
         else if (element instanceof HTMLInputElement) {
             if (element.type === 'color') {
@@ -391,11 +398,11 @@ function(instance, context) {
         if (event.detail) {
             elementMap.entries().forEach(([key, element]) => {
                 const selectedValue = event.detail[key];
-                setInputValue(element, selectedValue);
+                setInputValue(element, selectedValue, key);
             })
         } else {
             elementMap.entries().forEach(([key, element]) => {
-                setInputValue(element, undefined);
+                setInputValue(element, undefined, key);
             })
         }
     })
