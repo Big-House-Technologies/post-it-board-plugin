@@ -57,48 +57,146 @@ function(instance, context) {
         btn.style.padding = '6px 12px';
         btn.style.border = '1px solid #ccc';
         btn.style.borderRadius = '6px';
-        btn.style.fontWeight = 'bold';
         btn.style.cursor = 'pointer';
         btn.style.backgroundColor = '#fff';
         btn.style.transition = 'all 0.2s';
         return btn;
     };
 
-    const createLabeledInput = (elementMap, label, cmd, type = 'text', placeholder = '') => {
+    function createLabeledInputColor(elementMap, label, cmd) {
         const wrapper = document.createElement('div');
         wrapper.style.display = 'flex';
         wrapper.style.flexDirection = 'column';
-        wrapper.style.minWidth = '120px';
+        wrapper.style.minWidth = '150px';
+        wrapper.style.position = 'relative';
 
+        // Label
         const labelEl = document.createElement('label');
         labelEl.innerText = label;
         labelEl.style.marginBottom = '4px';
         labelEl.style.fontWeight = '500';
 
-        const input = document.createElement('input');
-        input.type = type;
-        input.placeholder = placeholder;
-        input.style.padding = '6px 10px';
-        input.style.border = '1px solid #ccc';
-        input.style.borderRadius = '6px';
-        input.style.fontSize = '14px';
+        // Color preview box
+        const colorBox = document.createElement('div');
+        colorBox.style.width = '50px';
+        colorBox.style.height = '24px';
+        colorBox.style.border = '1px solid #ccc';
+        colorBox.style.borderRadius = '4px';
+        colorBox.style.cursor = 'pointer';
+        colorBox.style.background = '#000000';
+        colorBox.dataset.type = 'color-picker';
 
-        if (type === 'color') {
-            input.style.padding = '0';
-            input.style.height = '34px';
-            input.style.width = '48px';
-            input.style.border = 'none';
-            input.style.background = 'none';
-        }
+        // Popup container
+        const popup = document.createElement('div');
+        popup.style.position = 'absolute';
+        popup.style.top = '50px';
+        popup.style.left = '0';
+        popup.style.background = '#fff';
+        popup.style.border = '1px solid #ccc';
+        popup.style.borderRadius = '6px';
+        popup.style.padding = '10px';
+        popup.style.display = 'none';
+        popup.style.flexDirection = 'column';
+        popup.style.gap = '6px';
+        popup.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+        popup.style.zIndex = '1000';
 
-        input.addEventListener('input', () => publish(cmd, input.value.trim()));
+        // Color palette (general colors)
+        const colors = ['green', 'red', 'blue', 'black', 'orange', 'purple'];
+        const paletteRow = document.createElement('div');
+        paletteRow.style.display = 'flex';
+        paletteRow.style.flexWrap = 'wrap';
+        paletteRow.style.gap = '6px';
 
+        colors.forEach(c => {
+            const btn = document.createElement('div');
+            btn.style.width = '24px';
+            btn.style.height = '24px';
+            btn.style.borderRadius = '4px';
+            btn.style.border = '1px solid #ccc';
+            btn.style.background = c;
+            btn.style.cursor = 'pointer';
+            btn.addEventListener('click', () => {
+                colorBox.style.background = c;
+                publish(cmd, c);
+                // don't close immediately
+            });
+            paletteRow.appendChild(btn);
+        });
+
+        // Transparent option
+        const transparentBtn = document.createElement('button');
+        transparentBtn.innerText = "Transparent";
+        transparentBtn.style.padding = "4px 10px";
+        transparentBtn.style.fontSize = "13px";
+        transparentBtn.style.cursor = "pointer";
+        transparentBtn.style.border = "1px solid #ccc";
+        transparentBtn.style.borderRadius = "6px";
+        transparentBtn.style.background = "#f9f9f9";
+        transparentBtn.style.width = "100%";
+        transparentBtn.addEventListener('click', () => {
+            colorBox.style.background = 'transparent';
+            publish(cmd, 'transparent');
+            // don't close immediately
+        });
+
+        // More colors (label + input)
+        const moreWrapper = document.createElement('div');
+        moreWrapper.style.display = 'flex';
+        moreWrapper.style.flexDirection = 'column';
+        moreWrapper.style.marginTop = "6px";
+        moreWrapper.style.borderTop = "1px solid #eee";
+        moreWrapper.style.paddingTop = "6px";
+
+        const moreLabel = document.createElement('label');
+        moreLabel.innerText = "More colors:";
+        moreLabel.style.fontSize = "13px";
+        moreLabel.style.marginBottom = "4px";
+
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.style.width = "100%";
+        colorInput.style.height = "30px";
+        colorInput.style.cursor = "pointer";
+        colorInput.style.border = "1px solid #ccc";
+        colorInput.style.borderRadius = "6px";
+
+        colorInput.addEventListener('input', () => {
+            colorBox.style.background = colorInput.value;
+            publish(cmd, colorInput.value);
+            // don't close immediately
+        });
+
+        moreWrapper.appendChild(moreLabel);
+        moreWrapper.appendChild(colorInput);
+
+        // Assemble popup
+        popup.appendChild(paletteRow);
+        popup.appendChild(transparentBtn);
+        popup.appendChild(moreWrapper);
+
+        // Toggle popup on box click
+        colorBox.addEventListener('click', () => {
+            popup.style.display = popup.style.display === 'none' ? 'flex' : 'none';
+        });
+
+        // Close popup only when click outside
+        document.addEventListener('click', (e) => {
+            if (!wrapper.contains(e.target)) {
+                popup.style.display = 'none';
+            }
+        });
+
+        // Build final structure
         wrapper.appendChild(labelEl);
-        wrapper.appendChild(input);
-        elementMap.set(cmd, input)
+        wrapper.appendChild(colorBox);
+        wrapper.appendChild(popup);
 
+        elementMap.set(cmd, colorBox);
         return wrapper;
-    };
+    }
+
+
 
     const createLabeledSelect = (elementMap, label, cmd, options) => {
         const wrapper = document.createElement('div');
@@ -150,6 +248,11 @@ function(instance, context) {
 
         options.forEach(opt => {
             const btn = createStyleButton(opt.label);
+            if (opt.style) {
+                Object.entries(opt.style).forEach(([key, val]) => {
+                    btn.style[key] = val;
+                });
+            }
             setInactiveStyle(btn);
             btn.addEventListener('click', () => {
                 state[opt.value] = !state[opt.value];
@@ -267,8 +370,6 @@ function(instance, context) {
         return container;
     };
 
-
-
     function createToggle(labelText, initialState = false, onChange) {
         let state = initialState; // internal state for this toggle
 
@@ -324,26 +425,24 @@ function(instance, context) {
         return wrapper;
     }
 
-
-
     // === Add Controls to Toolbar ===
     const elementMap = new Map();
-    toolbar.appendChild(createLabeledInput(elementMap, 'Font Color', 'color', 'color'));
+    toolbar.appendChild(createLabeledInputColor(elementMap, 'Font Color', 'color'));
     toolbar.appendChild(createLabeledSelect(elementMap, 'Font Type', 'font-family', ['', 'Arial', 'Times New Roman', 'Courier', 'Verdana']));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Font Size', 'font-size', 8, 72, 1));
 
     toolbar.appendChild(createTextStyleGroup(elementMap, 'Text Style', 'text-style', [
-        { label: 'Bold', value: 'bold', defaultValue: 'normal', cssKey: "font-weight" },
-        { label: 'Italic', value: 'italic', defaultValue: 'normal', cssKey: "font-style" },
-        { label: 'Underline', value: 'underline', defaultValue: 'none', cssKey: "text-decoration" },
+        { label: 'B', value: 'bold', defaultValue: 'normal', cssKey: "font-weight", style: { fontWeight: 'bold'} },
+        { label: 'I', value: 'italic', defaultValue: 'normal', cssKey: "font-style", style: { fontStyle: 'italic'} },
+        { label: 'U', value: 'underline', defaultValue: 'none', cssKey: "text-decoration", style: { textDecoration: 'underline'} },
     ]));
     toolbar.appendChild(createSingleSelectGroup(elementMap, 'Text Align', 'text-align', [
         { label: 'Left', value: 'left' },
         { label: 'Center', value: 'center' },
         { label: 'Right', value: 'right' },
     ]));
-    toolbar.appendChild(createLabeledInput(elementMap, 'Background Color', 'background-color', 'color'));
-    toolbar.appendChild(createLabeledInput(elementMap, 'Border Color', 'border-color', 'color'));
+    toolbar.appendChild(createLabeledInputColor(elementMap, 'Background Color', 'background-color'));
+    toolbar.appendChild(createLabeledInputColor(elementMap, 'Border Color', 'border-color'));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Border Width', 'border-width', 0, 20));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Height', 'height', 10, 500));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Width', 'width', 10, 500));
@@ -391,8 +490,12 @@ function(instance, context) {
         }
         else if (element instanceof HTMLSelectElement) {
             element.value = selectedValue ? selectedValue : '';
+        } else if (element instanceof HTMLDivElement) {
+            if (element.dataset.type === 'color-picker') {
+                element.style.background = selectedValue ? selectedValue : '#000000';
+            }
         }
-    }
+    };
 
     document.addEventListener('PostIt-selected-publishStyle', (event) => {
         if (event.detail) {
