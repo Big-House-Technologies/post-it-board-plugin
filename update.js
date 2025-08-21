@@ -33,7 +33,7 @@ function(instance, properties, context) {
   }
   console.log("🧹 Cleared board of existing post-its");
 
-  // Global state 
+  // Global state
   const postItElements = {};
   const postItsData = new Map();
   let selectedPostIt = null;
@@ -161,8 +161,7 @@ function(instance, properties, context) {
   };
 
   const getSelectionStyle = () => ({
-    outline: `${properties.selected_width_border || 2}px solid ${properties.selected_border_color || "red"}`,
-    boxShadow: properties.selected_shadow ? `0 0 10px ${properties.selected_border_color || "red"}` : "none"
+    
   });
 
   // Post-it management functions
@@ -181,7 +180,6 @@ function(instance, properties, context) {
   const focusPostItContent = (postIt) => {
     if (!postIt) return;
     postIt.focus();
-    console.log("Clicked & focused:", document.activeElement);
 
     try {
       const range = document.createRange();
@@ -716,19 +714,8 @@ function(instance, properties, context) {
       }
     });
 
-    document.addEventListener("focusin", () => {
-      console.log("New activeElement:", document.activeElement);
-    });
-
-    document.addEventListener("focusout", () => {
-      console.log("Focus left:", document.activeElement);
-    });
-
     instance.data.eventAttached = true;
   };
-
-
-
 
   document.addEventListener("PostIt-config", (event) => {
     if (event.detail && typeof event.detail === 'object') {
@@ -744,7 +731,6 @@ function(instance, properties, context) {
       }
     }
   })
-
 
   // Main execution
   loadPostItData();
