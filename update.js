@@ -1,24 +1,38 @@
 function(instance, properties, context) {
   // global function - TODO
+  const boardConfig = {
+    backgroundColor: properties.backgroundColor,
+    selectedShadow: properties.selectedShadow,
+    selectedBoxShadowColor: properties.selectedBoxShadowColor,
+    defaultText: properties.defaultText ?? '[Edit Me]',
+    editable: properties.isEditable ?? true,
+    hasBorder: properties.hasBorder,
+    defaultBorderColor: properties.defaultBorderColor
+  }
   if (instance.data.has_initialized === true) {
     console.log("✅ Already initialized. Skipping...");
-
-    const event = new CustomEvent('PostIt-updateStyle', {
-      detail: {
-        backgroundColor: properties.post_it_background_color
-      }
-    });
-
     return;
   }
 
   console.log("✅ Initializing Post-It Board");
+  document.dispatchEvent(new CustomEvent('PostIt-config-update', {
+    detail: {
+      editable: boardConfig.editable
+    }
+  }))
 
   const canvasID = properties.canvasID;
   const board = document.getElementById(canvasID);
-  const boardConfig = {
-    editable: true,
-  }
+  const getSelectionStyle = () => {
+    if (boardConfig.selectedShadow) {
+      return {
+        boxShadow:  `0 0 10px ${properties.selectedBoxShadowColor || "red"}`
+      }
+    }
+
+    return {}
+
+  };
 
   if (!canvasID || !board) {
     console.warn("⚠️ No canvas ID or board element found.");
@@ -141,15 +155,22 @@ function(instance, properties, context) {
     ? properties.bubble.font_size() + 'px'
     : (properties.bubble.font_size || '14px');
 
+  // Set up defaultCustomStyle
   const defaultCustomStyle = {
     width: "100px",
     height: "100px",
-    'background-color': '#008000',
+    'background-color': boardConfig.backgroundColor ?? 'green',
     'border-width': '1px',
-    'border-color': '#000000',
+    'border-color': boardConfig.defaultBorderColor ?? '#000000',
     'font-size': fontSize,
     'font-family': 'Arial',
   }
+  if (!boardConfig.hasBorder) {
+    defaultCustomStyle['border-width'] = 'none';
+    defaultCustomStyle['border-color'] = 'none';
+  }
+
+
   const postItStyle = {
     position: "absolute",
     padding: "10px",
@@ -159,10 +180,6 @@ function(instance, properties, context) {
     borderStyle: 'solid',
     textWrap: "auto",
   };
-
-  const getSelectionStyle = () => ({
-    
-  });
 
   // Post-it management functions
   const clearSelection = () => {
@@ -275,6 +292,7 @@ function(instance, properties, context) {
         clearSelection();
       }
 
+      Object.assign(postIt.style, getSelectionStyle());
       selectedPostIt = postIt;
       selectedPostItData = postItsData.get(id);
       selectedPostIt.style.zIndex = 1000; // Bring to front  
@@ -488,7 +506,7 @@ function(instance, properties, context) {
     }
 
     if (!postIt.style.backgroundColor) {
-      postIt.style.backgroundColor = 'green';
+      postIt.style.backgroundColor = boardConfig.backgroundColor ?? 'green';
     }
 
     postIt.setAttribute("data-postit-id", id);
@@ -667,7 +685,7 @@ function(instance, properties, context) {
 
       const newPostItData = {
         id: newId,
-        text: "[edit me]",
+        text: boardConfig.defaultText ?? "[edit me]",
         customStyle: {
           left: newPosition?.x ? newPosition.x + "px" : "0px",
           top: newPosition?.y ? newPosition.y + "px" : "0px",
@@ -677,6 +695,7 @@ function(instance, properties, context) {
       postItsData.set(newId, newPostItData);
 
       const postIt = createPostIt(newPostItData);
+
       if (postIt) {
         selectedPostIt = postIt;
         selectedPostItData = newPostItData;
