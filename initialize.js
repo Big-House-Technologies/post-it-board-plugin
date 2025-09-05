@@ -370,7 +370,7 @@ function(instance, context) {
         return container;
     };
 
-    function createToggle(labelText, initialState = false, onChange) {
+    function createToggle(labelText, initialState = false, onChange, eventListenerConfig) {
         let state = initialState; // internal state for this toggle
 
         // Wrapper
@@ -408,16 +408,27 @@ function(instance, context) {
 
         toggle.appendChild(knob);
 
+        const setStyleToggle = (state) => {
+            toggle.style.background = state ? "#4caf50" : "#ccc";
+            knob.style.left = state ? "27px" : "2px";
+        }
+
         // Toggle click
         wrapper.addEventListener("click", () => {
             state = !state;
-            toggle.style.background = state ? "#4caf50" : "#ccc";
-            knob.style.left = state ? "27px" : "2px";
+            setStyleToggle(state);
 
             if (typeof onChange === "function") {
                 onChange(state);
             }
         });
+
+        document.addEventListener(eventListenerConfig.eventName, event => {
+            if (event.detail && event.detail[eventListenerConfig.propertyName] !== undefined) {
+                state = event.detail[eventListenerConfig.propertyName] ? true : false
+                setStyleToggle(state);
+            }
+        })
 
         wrapper.appendChild(toggle);
         wrapper.appendChild(label);
@@ -432,9 +443,9 @@ function(instance, context) {
     toolbar.appendChild(createEditableDropdown(elementMap, 'Font Size', 'font-size', 8, 72, 1));
 
     toolbar.appendChild(createTextStyleGroup(elementMap, 'Text Style', 'text-style', [
-        { label: 'B', value: 'bold', defaultValue: 'normal', cssKey: "font-weight", style: { fontWeight: 'bold'} },
-        { label: 'I', value: 'italic', defaultValue: 'normal', cssKey: "font-style", style: { fontStyle: 'italic'} },
-        { label: 'U', value: 'underline', defaultValue: 'none', cssKey: "text-decoration", style: { textDecoration: 'underline'} },
+        { label: 'B', value: 'bold', defaultValue: 'normal', cssKey: "font-weight", style: { fontWeight: 'bold' } },
+        { label: 'I', value: 'italic', defaultValue: 'normal', cssKey: "font-style", style: { fontStyle: 'italic' } },
+        { label: 'U', value: 'underline', defaultValue: 'none', cssKey: "text-decoration", style: { textDecoration: 'underline' } },
     ]));
     toolbar.appendChild(createSingleSelectGroup(elementMap, 'Text Align', 'text-align', [
         { label: 'Left', value: 'left' },
@@ -453,7 +464,7 @@ function(instance, context) {
                 editable,
             }
         }));
-    }));
+    }, { eventName: 'PostIt-config-update', propertyName: 'editable' }));
 
     const setInputValue = (element, selectedValue, key) => {
         // How many types of element: Input, Select, Button, Map
