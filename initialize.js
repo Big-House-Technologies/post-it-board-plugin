@@ -494,9 +494,7 @@ function(instance, context) {
             if (element.type === 'color') {
                 element.value = selectedValue ? selectedValue : '#000000';
             } else {
-                element.value = selectedValue ?
-                    (selectedValue.includes('px') ? parseFloat(selectedValue) : selectedValue)
-                    : '';
+                element.value = parseFloat(selectedValue);
             }
         }
         else if (element instanceof HTMLSelectElement) {
