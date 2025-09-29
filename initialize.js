@@ -438,6 +438,20 @@ function(instance, context) {
 
     // === Add Controls to Toolbar ===
     const elementMap = new Map();
+    toolbar.appendChild(createToggle('Editable', true, (editable) => {
+        document.dispatchEvent(new CustomEvent('PostIt-config', {
+            detail: {
+                editable,
+            }
+        }));
+    }, { eventName: 'PostIt-config-update', propertyName: 'editable' }));
+    toolbar.appendChild(createToggle('Edit Style', true, (editable) => {
+        document.dispatchEvent(new CustomEvent('PostIt-config', {
+            detail: {
+                styleEditable: editable,
+            }
+        }));
+    }, { eventName: 'PostIt-config-update', propertyName: 'styleEditable' }));
     toolbar.appendChild(createLabeledInputColor(elementMap, 'Font Color', 'color'));
     toolbar.appendChild(createLabeledSelect(elementMap, 'Font Type', 'font-family', ['', 'Arial', 'Times New Roman', 'Courier', 'Verdana']));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Font Size', 'font-size', 8, 72, 1));
@@ -458,13 +472,7 @@ function(instance, context) {
     toolbar.appendChild(createEditableDropdown(elementMap, 'Height', 'height', 10, 500));
     toolbar.appendChild(createEditableDropdown(elementMap, 'Width', 'width', 10, 500));
 
-    toolbar.appendChild(createToggle('Editable', true, (editable) => {
-        document.dispatchEvent(new CustomEvent('PostIt-config', {
-            detail: {
-                editable,
-            }
-        }));
-    }, { eventName: 'PostIt-config-update', propertyName: 'editable' }));
+    
 
     const setInputValue = (element, selectedValue, key) => {
         // How many types of element: Input, Select, Button, Map
