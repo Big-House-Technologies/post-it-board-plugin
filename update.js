@@ -12,6 +12,7 @@ function(instance, properties, context) {
   })();
   Logger.disable();
   Logger.log('CHANGE', properties)
+
   const boardConfig = {
     backgroundColor: properties.backgroundColor,
     selectedShadow: properties.selectedShadow,
@@ -126,7 +127,6 @@ function(instance, properties, context) {
     if (boardConfig.styleEditable) {
       checkAndUpdateStyle(event.detail)
     }
-
   })
 
 
@@ -172,6 +172,8 @@ function(instance, properties, context) {
         rawPostIts.forEach(str => {
           try {
             const data = JSON.parse(str);
+
+            Logger.log('Selected PostIt Data', selectedPostItData?.id, selectedPostIt, isDynamicUpdate)
 
             if (data && data.postItId) {
               const exisitngPostIt = postItsData?.get(data.postItId)
@@ -236,13 +238,20 @@ function(instance, properties, context) {
   // Post-it management functions
   const clearSelection = () => {
     if (selectedPostIt) {
+      // Reset border
       selectedPostIt.style.outline = "none";
       selectedPostIt.style.boxShadow = "none";
       selectedPostIt.style.zIndex = 500;
+      // Reset text
+      if (selectedPostItData) {
+        selectedPostItData.innerText = selectedPostItData.text
+      }
+
       selectedPostIt.contentEditable = false;
       selectedPostIt = null;
     }
     editTextMode = false;
+    hideTextEditActions(selectedPostIt, false);
   };
 
   const focusPostItContent = (postIt) => {
@@ -319,12 +328,17 @@ function(instance, properties, context) {
     }, 10);
   };
 
-  const debouncedTextUpdate = debounce((postIt, postItId, text) => {
+
+  const updateText = (postIt, postItId, text) => {
     if (!postIt || !postItId) return;
-    Logger.log('DEBOUNCE - Text Update', postItId, text)
     updatePostItData(postItId, { text });
     triggerPostItUpdate(postItId);
-  }, 800);
+  };
+
+  const resetText = (postIt, postItId) => {
+    if (!postIt || !postItId) return;
+    postIt.innerText = selectedPostItData?.text || '';
+  };
 
 
   let resizing = false;
@@ -389,16 +403,6 @@ function(instance, properties, context) {
       }
     });
 
-    // Input handler
-    let lastContentValue = postIt.innerText;
-    postIt.addEventListener("input", () => {
-      const currentText = sanitizeText(postIt.innerText);
-      if (currentText !== lastContentValue) {
-        Logger.log('INPUT - Text Change', id, currentText)
-        lastContentValue = currentText;
-        debouncedTextUpdate(postIt, id, currentText);
-      }
-    });
 
     // Tab key handler
     postIt.addEventListener("keydown", (e) => {
@@ -432,7 +436,9 @@ function(instance, properties, context) {
       } else {
         editTextMode = true;
         selectedPostIt.contentEditable = true;
+        showTextEditActions(selectedPostIt);
       }
+
       selectedPostIt = postIt;
       Logger.log('Mouse down - PostIt', selectedPostItData)
       selectedPostItData = postItsData.get(id);
@@ -623,7 +629,12 @@ function(instance, properties, context) {
 
     if (postItElements[id]) {
       const existingPostIt = postItElements[id];
-      const existingPostItData = postItsData.get(id)
+      const existingPostItData = postItsData.get(id);
+      // If a PostIt is Editing mode, don't update it
+      if (id === selectedPostItData?.id && selectedPostIt.contentEditable == "true") {
+        return existingPostIt;
+      }
+
       if (!existingPostItData.timeChange || existingPostItData.timeChange >= postItData.timeChange) {
         Object.assign(existingPostIt.style, postItData.customStyle);
         existingPostIt.innerText = postItData.text;
@@ -674,6 +685,25 @@ function(instance, properties, context) {
   // Editable Content
   let editTextMode = false;
 
+  const setPostItEditButtonStyle = (element, title) => {
+    element.style.position = "absolute";
+    element.style.top = "-14px";
+    element.style.width = "25px";
+    element.style.height = "22px";
+    element.style.background = "#fff"; // white background
+    element.style.borderRadius = "6px"; // slightly rounded
+    element.style.display = "flex";
+    element.style.alignItems = "center";
+    element.style.textAlign = "center";
+    element.style.justifyContent = "center";
+    element.style.cursor = "pointer";
+    element.style.display = "none"; // only show on select
+    element.style.boxShadow = "0 4px 10px rgba(0,0,0,0.25)";
+    element.style.zIndex = "1002";
+    element.title = title;
+    element.style.userSelect = "none";
+  }
+
 
   const deleteBtn = document.createElement("div");
   deleteBtn.setAttribute('data-scope', 'postIt-plugin');
@@ -688,22 +718,7 @@ function(instance, properties, context) {
     <path d="M9 6V4h6v2"></path>
   </svg>
 `;
-  deleteBtn.style.position = "absolute";
-  deleteBtn.style.top = "-14px";
-  deleteBtn.style.width = "25px";
-  deleteBtn.style.height = "22px";
-  deleteBtn.style.background = "#fff"; // white background
-  deleteBtn.style.borderRadius = "6px"; // slightly rounded
-  deleteBtn.style.display = "flex";
-  deleteBtn.style.alignItems = "center";
-  deleteBtn.style.textAlign = "center";
-  deleteBtn.style.justifyContent = "center";
-  deleteBtn.style.cursor = "pointer";
-  deleteBtn.style.display = "none"; // only show on select
-  deleteBtn.style.boxShadow = "0 4px 10px rgba(0,0,0,0.25)";
-  deleteBtn.style.zIndex = "1002";
-  deleteBtn.title = "Delete";
-  deleteBtn.style.userSelect = "none";
+  setPostItEditButtonStyle(deleteBtn, "Delete");
 
   board.appendChild(deleteBtn);
   deleteBtn.addEventListener("click", (e) => {
@@ -714,6 +729,55 @@ function(instance, properties, context) {
       deleteBtn.style.display = "none";
       instance.publishState("postItId", selectedPostIt.getAttribute("data-postit-id"));
       instance.triggerEvent("postItDeleted");
+    }
+  });
+
+
+  const textSaveBtn = document.createElement("div");
+  textSaveBtn.setAttribute('data-scope', 'postIt-plugin');
+  textSaveBtn.innerHTML = `
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+     fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+     viewBox="0 0 24 24">
+  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+  <rect x="7" y="3" width="8" height="4" rx="1" ry="1"></rect>
+  <path d="M17 21V13H7v8"></path>
+</svg>
+
+`;
+  setPostItEditButtonStyle(textSaveBtn, "Save Text");
+  board.appendChild(textSaveBtn);
+  textSaveBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (selectedPostIt && selectedPostItData) {
+      editTextMode = false;
+      selectedPostIt.contentEditable = false;
+      hideTextEditActions(selectedPostIt);
+      updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
+    }
+  });
+
+  const textCancelBtn = document.createElement("div");
+  textCancelBtn.setAttribute('data-scope', 'postIt-plugin');
+  textCancelBtn.innerHTML = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+     fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+     viewBox="0 0 24 24">
+  <path d="M18 6L6 18"></path>
+  <path d="M6 6l12 12"></path>
+</svg>
+
+
+`;
+  setPostItEditButtonStyle(textCancelBtn, "Cancel Edit Text");
+  board.appendChild(textCancelBtn);
+  textCancelBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (selectedPostIt && selectedPostItData) {
+      editTextMode = false;
+      selectedPostIt.contentEditable = false;
+      hideTextEditActions(selectedPostIt);
+      resetText(selectedPostIt, selectedPostItData.id);
     }
   });
 
@@ -786,6 +850,32 @@ function(instance, properties, context) {
     selectedPostIt.contentEditable = editTextMode;
 
     positionHandles();
+  }
+
+  function showTextEditActions(el) {
+    
+    textSaveBtn.style.top = (el.offsetTop - 25) + "px";
+    textSaveBtn.style.left = (el.offsetLeft + el.offsetWidth - 60) + "px";
+    textSaveBtn.style.transition = "opacity 0.25s ease";
+    textSaveBtn.style.opacity = "1";
+    textSaveBtn.style.display = "block";
+
+    textCancelBtn.style.display = "block";
+    textCancelBtn.style.top = (selectedPostIt.offsetTop - 25) + "px";
+    textCancelBtn.style.top = (el.offsetTop - 25) + "px";
+    textCancelBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
+    deleteBtn.style.display = "none";
+  }
+
+  function hideTextEditActions(el, showDeletePostItButton = true) {
+    textSaveBtn.style.display = "none";
+    textCancelBtn.style.display = "none";
+
+    if (showDeletePostItButton && el) {
+      deleteBtn.style.display = "block";
+      deleteBtn.style.top = (el.offsetTop - 25) + "px";
+      deleteBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
+    }
   }
 
   // === Resize start ===
@@ -923,19 +1013,12 @@ function(instance, properties, context) {
 
 
   const updatePostItBoard = (existingPostItObjects) => {
-    while (isUpdating) {
-      // Wait until current update is done
-    }
     loadPostItData(existingPostItObjects, true);
     selectedPostItData = postItsData.get(selectedPostIt?.getAttribute("data-postit-id"));
     postItsData.forEach(postItData => {
       createPostIt(postItData)
     })
   }
-
-  document.addEventListener('focusin', () => {
-    console.log('Now focused:', document.activeElement);
-  });
 
   // Main execution
   loadPostItData();
