@@ -23,6 +23,7 @@ function(instance, properties, context) {
     hasBorder: properties.hasBorder,
     defaultBorderColor: properties.defaultBorderColor
   }
+
   if (instance.data.has_initialized === true) {
     document.dispatchEvent(new CustomEvent('PostIt-dynamic-config-update', {
       detail: properties
@@ -31,12 +32,26 @@ function(instance, properties, context) {
     return;
   }
 
+  const lastExternalEditableConfig = {
+    editable: boardConfig.editable,
+    styleEditable: boardConfig.styleEditable,
+  }
+
   document.addEventListener("PostIt-update-PostIt-objects", (e) => {
     if (e.detail && typeof e.detail === 'object') {
       Object.assign(boardConfig, e.detail);
       Logger.log("🔄 Dynamic config updated:", boardConfig)
     };
   });
+
+  const sendEventConfigUpdate = (editableConfig) => {
+    document.dispatchEvent(new CustomEvent('PostIt-config-update', {
+      detail: {
+        editable: editableConfig.editable,
+        styleEditable: editableConfig.styleEditable,
+      }
+    }))
+  }
 
   document.addEventListener("PostIt-dynamic-config-update", (e) => {
     const properties = e?.detail;
@@ -49,17 +64,24 @@ function(instance, properties, context) {
         hasBorder: properties.hasBorder,
         defaultBorderColor: properties.defaultBorderColor
       }
+
+      if (lastExternalEditableConfig.editable != properties.isEditable) {
+        newBoardConfig.editable = properties.isEditable;
+        lastExternalEditableConfig.editable = properties.isEditable;
+      }
+
+      if (lastExternalEditableConfig.styleEditable != properties.styleEditable) {
+        newBoardConfig.styleEditable = properties.styleEditable;
+        lastExternalEditableConfig.styleEditable = properties.styleEditable;
+      }
+
       Object.assign(boardConfig, newBoardConfig);
-      updatePostItBoard(properties.existingPostItObjects)
+      updatePostItBoard(properties.existingPostItObjects);
+      sendEventConfigUpdate(boardConfig);
     };
   });
 
-  document.dispatchEvent(new CustomEvent('PostIt-config-update', {
-    detail: {
-      editable: boardConfig.editable,
-      styleEditable: boardConfig.styleEditable,
-    }
-  }))
+  sendEventConfigUpdate(boardConfig);
 
   const canvasID = properties.canvasID;
   const board = document.getElementById(canvasID);
@@ -246,12 +268,13 @@ function(instance, properties, context) {
       if (selectedPostItData) {
         selectedPostItData.innerText = selectedPostItData.text
       }
-
       selectedPostIt.contentEditable = false;
+      updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
       selectedPostIt = null;
     }
     editTextMode = false;
     hideTextEditActions(selectedPostIt, false);
+
   };
 
   const focusPostItContent = (postIt) => {
@@ -853,7 +876,7 @@ function(instance, properties, context) {
   }
 
   function showTextEditActions(el) {
-    
+
     textSaveBtn.style.top = (el.offsetTop - 25) + "px";
     textSaveBtn.style.left = (el.offsetLeft + el.offsetWidth - 60) + "px";
     textSaveBtn.style.transition = "opacity 0.25s ease";
