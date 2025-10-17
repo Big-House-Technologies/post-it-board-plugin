@@ -873,21 +873,22 @@ function(instance, properties, context) {
     selectedPostIt.contentEditable = editTextMode;
 
     positionHandles();
+    updateTextEditActionsPosition(el);
   }
 
   function showTextEditActions(el) {
+    updateTextEditActionsPosition(el);
+    textSaveBtn.style.display = "block";
+    textCancelBtn.style.display = "block";
+    deleteBtn.style.display = "none";
+  }
 
+  function updateTextEditActionsPosition(el) {
     textSaveBtn.style.top = (el.offsetTop - 25) + "px";
     textSaveBtn.style.left = (el.offsetLeft + el.offsetWidth - 60) + "px";
-    textSaveBtn.style.transition = "opacity 0.25s ease";
-    textSaveBtn.style.opacity = "1";
-    textSaveBtn.style.display = "block";
 
-    textCancelBtn.style.display = "block";
-    textCancelBtn.style.top = (selectedPostIt.offsetTop - 25) + "px";
     textCancelBtn.style.top = (el.offsetTop - 25) + "px";
     textCancelBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
-    deleteBtn.style.display = "none";
   }
 
   function hideTextEditActions(el, showDeletePostItButton = true) {
