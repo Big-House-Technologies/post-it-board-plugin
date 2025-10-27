@@ -18,8 +18,8 @@ function(instance, properties, context) {
     selectedShadow: properties.selectedShadow,
     selectedBoxShadowColor: properties.selectedBoxShadowColor,
     defaultText: properties.defaultText ?? '[Edit Me]',
-    editable: properties.isEditable ?? true,
-    styleEditable: properties.styleEditable ?? true,
+    allowCreation: properties.allowCreation ?? true,
+    allowEdit: properties.allowEdit ?? true,
     hasBorder: properties.hasBorder,
     defaultBorderColor: properties.defaultBorderColor
   }
@@ -33,8 +33,8 @@ function(instance, properties, context) {
   }
 
   const lastExternalEditableConfig = {
-    editable: boardConfig.editable,
-    styleEditable: boardConfig.styleEditable,
+    allowCreation: boardConfig.allowCreation,
+    allowEdit: boardConfig.allowEdit,
   }
 
   document.addEventListener("PostIt-update-PostIt-objects", (e) => {
@@ -45,15 +45,16 @@ function(instance, properties, context) {
   });
 
   const sendEventConfigUpdate = (editableConfig) => {
-    document.dispatchEvent(new CustomEvent('PostIt-config-update', {
+    document.dispatchEvent(new CustomEvent('PostIt-edtiable-config-update', {
       detail: {
-        editable: editableConfig.editable,
-        styleEditable: editableConfig.styleEditable,
+        allowCreation: editableConfig.allowCreation,
+        allowEdit: editableConfig.allowEdit,
       }
     }))
   }
 
   document.addEventListener("PostIt-dynamic-config-update", (e) => {
+    // This one is from external config to internal config
     const properties = e?.detail;
     if (typeof e.detail === 'object') {
       const newBoardConfig = {
@@ -65,14 +66,14 @@ function(instance, properties, context) {
         defaultBorderColor: properties.defaultBorderColor
       }
 
-      if (lastExternalEditableConfig.editable != properties.isEditable) {
-        newBoardConfig.editable = properties.isEditable;
-        lastExternalEditableConfig.editable = properties.isEditable;
+      if (lastExternalEditableConfig.allowCreation != properties.allowCreation) {
+        newBoardConfig.allowCreation = properties.allowCreation;
+        lastExternalEditableConfig.allowCreation = properties.allowCreation;
       }
 
-      if (lastExternalEditableConfig.styleEditable != properties.styleEditable) {
-        newBoardConfig.styleEditable = properties.styleEditable;
-        lastExternalEditableConfig.styleEditable = properties.styleEditable;
+      if (lastExternalEditableConfig.allowEdit != properties.allowEdit) {
+        newBoardConfig.allowEdit = properties.allowEdit;
+        lastExternalEditableConfig.allowEdit = properties.allowEdit;
       }
 
       Object.assign(boardConfig, newBoardConfig);
@@ -146,7 +147,7 @@ function(instance, properties, context) {
 
   document.addEventListener('PostIt-updateStyle', function (event) {
     Logger.log('Event listener - PostIt-updateStyle')
-    if (boardConfig.styleEditable) {
+    if (boardConfig.allowEdit) {
       checkAndUpdateStyle(event.detail)
     }
   })
@@ -370,7 +371,7 @@ function(instance, properties, context) {
   let startX, startY, startW, startH, startT, startL;
 
   const startDragging = (e) => {
-    if (!selectedPostIt || !boardConfig.editable) return;
+    if (!selectedPostIt || !boardConfig.allowEdit) return;
 
     startX = e.clientX;
     startY = e.clientY;
@@ -385,7 +386,7 @@ function(instance, properties, context) {
     // Unified selection/focus handler
     const selectPostIt = (e) => {
 
-      if (!boardConfig.editable && !boardConfig.styleEditable) {
+      if (!boardConfig.allowCreation && !boardConfig.allowEdit) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
@@ -436,7 +437,7 @@ function(instance, properties, context) {
     });
 
     postIt.addEventListener("mousedown", (e) => {
-      if (!boardConfig.editable) {
+      if (!boardConfig.allowEdit) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
@@ -929,7 +930,7 @@ function(instance, properties, context) {
 
       if (isUpdating) return;
 
-      if (!boardConfig.editable) {
+      if (!boardConfig.allowCreation) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
@@ -982,7 +983,7 @@ function(instance, properties, context) {
 
     // Delete selected post-it with DEL key
     document.addEventListener("keydown", (e) => {
-      if (!boardConfig.editable) {
+      if (!boardConfig.allowEdit) {
         console.warn("⚠️ Board is not editable. Skipping post-it deletion.");
         return;
       }
@@ -1016,11 +1017,11 @@ function(instance, properties, context) {
     }
   }
 
-  document.addEventListener("PostIt-config", (event) => {
+  document.addEventListener("PostIt-editable-config", (event) => {
     if (event.detail && typeof event.detail === 'object') {
-      boardConfig.editable = event.detail.editable !== undefined ? event.detail.editable : boardConfig.editable;
-      boardConfig.styleEditable = event.detail.styleEditable !== undefined ? event.detail.styleEditable : boardConfig.styleEditable;
-      if (!boardConfig.editable && !boardConfig.styleEditable) {
+      boardConfig.allowCreation = event.detail.allowCreation !== undefined ? event.detail.allowCreation : boardConfig.allowCreation;
+      boardConfig.allowEdit = event.detail.allowEdit !== undefined ? event.detail.allowEdit : boardConfig.allowEdit;
+      if (!boardConfig.allowCreation && !boardConfig.allowEdit) {
         resetResizeBox();
       }
     }
