@@ -68,19 +68,22 @@ function(instance, properties, context) {
         defaultBorderColor: properties.defaultBorderColor
       }
 
-      if (lastExternalEditableConfig.allowCreation != properties.allowCreation) {
+      if (lastExternalEditableConfig.allowCreation != properties.allowCreation && properties.allowCreation != null) {
         newBoardConfig.allowCreation = properties.allowCreation;
         lastExternalEditableConfig.allowCreation = properties.allowCreation;
       }
 
-      if (lastExternalEditableConfig.allowEdit != properties.allowEdit) {
+      if (lastExternalEditableConfig.allowEdit != properties.allowEdit && properties.allowEdit != null) {
         newBoardConfig.allowEdit = properties.allowEdit;
         lastExternalEditableConfig.allowEdit = properties.allowEdit;
       }
-
+    
       Object.assign(boardConfig, newBoardConfig);
+      if (properties.allowCreation != null || properties.allowEdit != null) {
+        // Only send event when one of two mode properties are set
+        sendEventConfigUpdate(boardConfig);
+      }
       updatePostItBoard(properties.existingPostItObjects);
-      sendEventConfigUpdate(boardConfig);
     };
   });
 
@@ -190,6 +193,7 @@ function(instance, properties, context) {
     // Load from JSON strings
     if (existingPostItObjects && typeof existingPostItObjects.get === "function") {
       try {
+        const deletedIds = new Set(postItsData?.keys() ?? [])
         const rawPostIts = loadAllBubbleList(existingPostItObjects);
         Logger.log("🔹 Post-Data (JSON):", rawPostIts.length);
 
@@ -198,7 +202,7 @@ function(instance, properties, context) {
             const data = JSON.parse(str);
 
             Logger.log('Selected PostIt Data', selectedPostItData?.id, selectedPostIt, isDynamicUpdate)
-
+            deletedIds.delete(data.postItId)
             if (data && data.postItId) {
               const exisitngPostIt = postItsData?.get(data.postItId)
               Logger.log('TIME CHANGE', data.postItId, data.timeChange, exisitngPostIt?.timeChange)
@@ -219,6 +223,16 @@ function(instance, properties, context) {
             console.warn("⚠️ Invalid JSON:", str);
           }
         });
+
+        // delete all deleted PostItData
+        deletedIds.forEach(id => {
+          postItsData.delete(id)
+        })
+
+        return {
+          deletedIds: deletedIds,
+          postItsData
+        }
       } catch (err) {
         if (err.message === 'not ready') throw err;
         console.warn("⚠️ Error loading existingPostItObjects:", err);
@@ -267,11 +281,12 @@ function(instance, properties, context) {
       selectedPostIt.style.boxShadow = "none";
       selectedPostIt.style.zIndex = 500;
       // Reset text
+      selectedPostIt.contentEditable = false;
       if (selectedPostItData) {
         selectedPostItData.innerText = selectedPostItData.text
+        updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
       }
-      selectedPostIt.contentEditable = false;
-      updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
+      
       selectedPostIt = null;
     }
     editTextMode = false;
@@ -391,7 +406,6 @@ function(instance, properties, context) {
         return;
       }
 
-      isUpdating = true;
       const alreadySelected = selectedPostIt === postIt;
 
       if (!alreadySelected && selectedPostIt) {
@@ -870,7 +884,7 @@ function(instance, properties, context) {
       deleteBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
       deleteBtn.style.display = "block";
     }
-    
+
     selectedPostIt.contentEditable = editTextMode;
 
     positionHandles();
@@ -1038,13 +1052,25 @@ function(instance, properties, context) {
     boardRectangle = undefined;
   });
 
+  const clearDeletedPostIt = (postIds) => {
+    postIds?.forEach((id) => {
+      postItElements[id]?.remove()
+      delete postItElements[id]
+      delete postItsData[id]
+    })
+  }
+
 
   const updatePostItBoard = (existingPostItObjects) => {
-    loadPostItData(existingPostItObjects, true);
+    const loadedResult = loadPostItData(existingPostItObjects, true);
     selectedPostItData = postItsData.get(selectedPostIt?.getAttribute("data-postit-id"));
     postItsData.forEach(postItData => {
       createPostIt(postItData)
     })
+    if (loadedResult?.deletedIds?.size > 0) {
+      clearDeletedPostIt(loadedResult.deletedIds);
+      resetResizeBox()
+    }
   }
 
   // Main execution
