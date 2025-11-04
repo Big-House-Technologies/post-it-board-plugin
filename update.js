@@ -18,8 +18,8 @@ function(instance, properties, context) {
     selectedShadow: properties.selectedShadow,
     selectedBoxShadowColor: properties.selectedBoxShadowColor,
     defaultText: properties.defaultText ?? '[Edit Me]',
-    editable: properties.isEditable ?? true,
-    styleEditable: properties.styleEditable ?? true,
+    allowCreation: properties.allowCreation ?? true,
+    allowEdit: properties.allowEdit ?? true,
     hasBorder: properties.hasBorder,
     defaultBorderColor: properties.defaultBorderColor
   }
@@ -33,8 +33,8 @@ function(instance, properties, context) {
   }
 
   const lastExternalEditableConfig = {
-    editable: boardConfig.editable,
-    styleEditable: boardConfig.styleEditable,
+    allowCreation: boardConfig.allowCreation,
+    allowEdit: boardConfig.allowEdit,
   }
 
   document.addEventListener("PostIt-update-PostIt-objects", (e) => {
@@ -45,15 +45,18 @@ function(instance, properties, context) {
   });
 
   const sendEventConfigUpdate = (editableConfig) => {
-    document.dispatchEvent(new CustomEvent('PostIt-config-update', {
+    document.dispatchEvent(new CustomEvent('PostIt-edtiable-config-update', {
       detail: {
-        editable: editableConfig.editable,
-        styleEditable: editableConfig.styleEditable,
+        allowCreation: editableConfig.allowCreation,
+        allowEdit: editableConfig.allowEdit,
       }
     }))
   }
 
+  const hasSelectedPostItAndAllowEdit = () => selectedPostIt && boardConfig.allowEdit
+
   document.addEventListener("PostIt-dynamic-config-update", (e) => {
+    // This one is from external config to internal config
     const properties = e?.detail;
     if (typeof e.detail === 'object') {
       const newBoardConfig = {
@@ -65,19 +68,22 @@ function(instance, properties, context) {
         defaultBorderColor: properties.defaultBorderColor
       }
 
-      if (lastExternalEditableConfig.editable != properties.isEditable) {
-        newBoardConfig.editable = properties.isEditable;
-        lastExternalEditableConfig.editable = properties.isEditable;
+      if (lastExternalEditableConfig.allowCreation != properties.allowCreation && properties.allowCreation != null) {
+        newBoardConfig.allowCreation = properties.allowCreation;
+        lastExternalEditableConfig.allowCreation = properties.allowCreation;
       }
 
-      if (lastExternalEditableConfig.styleEditable != properties.styleEditable) {
-        newBoardConfig.styleEditable = properties.styleEditable;
-        lastExternalEditableConfig.styleEditable = properties.styleEditable;
+      if (lastExternalEditableConfig.allowEdit != properties.allowEdit && properties.allowEdit != null) {
+        newBoardConfig.allowEdit = properties.allowEdit;
+        lastExternalEditableConfig.allowEdit = properties.allowEdit;
       }
-
+    
       Object.assign(boardConfig, newBoardConfig);
+      if (properties.allowCreation != null || properties.allowEdit != null) {
+        // Only send event when one of two mode properties are set
+        sendEventConfigUpdate(boardConfig);
+      }
       updatePostItBoard(properties.existingPostItObjects);
-      sendEventConfigUpdate(boardConfig);
     };
   });
 
@@ -124,6 +130,15 @@ function(instance, properties, context) {
     instance.publishState("timeChange", timeChange ?? Date.now())
   }
 
+  const clearStates = () => {
+    setTimeout(() => {
+      instance.publishState("customStyle", undefined);
+      instance.publishState("postItText", undefined);
+      instance.publishState("postItId", undefined);
+      instance.publishState("timeChange", undefined)
+    }, 200)
+  }
+
   const checkAndUpdateStyle = (newStyle) => {
 
     if (selectedPostIt && selectedPostItData) {
@@ -138,7 +153,7 @@ function(instance, properties, context) {
       const { text, customStyle, id, timeChange } = selectedPostItData;
 
       publishStates(id, text, customStyle, timeChange)
-      updateOverlay(selectedPostIt);
+      updateResizeBoxAndEditActions(selectedPostIt);
 
       instance.triggerEvent("postItUpdated");
     }
@@ -146,20 +161,10 @@ function(instance, properties, context) {
 
   document.addEventListener('PostIt-updateStyle', function (event) {
     Logger.log('Event listener - PostIt-updateStyle')
-    if (boardConfig.styleEditable) {
+    if (boardConfig.allowEdit) {
       checkAndUpdateStyle(event.detail)
     }
   })
-
-
-  // Helper functions
-  const debounce = (func, wait) => {
-    let timeout;
-    return function (...args) {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    };
-  };
 
   const sanitizeText = (text) => {
     if (!text) return "";
@@ -188,6 +193,7 @@ function(instance, properties, context) {
     // Load from JSON strings
     if (existingPostItObjects && typeof existingPostItObjects.get === "function") {
       try {
+        const deletedIds = new Set(postItsData?.keys() ?? [])
         const rawPostIts = loadAllBubbleList(existingPostItObjects);
         Logger.log("🔹 Post-Data (JSON):", rawPostIts.length);
 
@@ -196,7 +202,7 @@ function(instance, properties, context) {
             const data = JSON.parse(str);
 
             Logger.log('Selected PostIt Data', selectedPostItData?.id, selectedPostIt, isDynamicUpdate)
-
+            deletedIds.delete(data.postItId)
             if (data && data.postItId) {
               const exisitngPostIt = postItsData?.get(data.postItId)
               Logger.log('TIME CHANGE', data.postItId, data.timeChange, exisitngPostIt?.timeChange)
@@ -217,6 +223,16 @@ function(instance, properties, context) {
             console.warn("⚠️ Invalid JSON:", str);
           }
         });
+
+        // delete all deleted PostItData
+        deletedIds.forEach(id => {
+          postItsData.delete(id)
+        })
+
+        return {
+          deletedIds: deletedIds,
+          postItsData
+        }
       } catch (err) {
         if (err.message === 'not ready') throw err;
         console.warn("⚠️ Error loading existingPostItObjects:", err);
@@ -265,11 +281,12 @@ function(instance, properties, context) {
       selectedPostIt.style.boxShadow = "none";
       selectedPostIt.style.zIndex = 500;
       // Reset text
+      selectedPostIt.contentEditable = false;
       if (selectedPostItData) {
         selectedPostItData.innerText = selectedPostItData.text
+        updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
       }
-      selectedPostIt.contentEditable = false;
-      updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
+      
       selectedPostIt = null;
     }
     editTextMode = false;
@@ -370,7 +387,7 @@ function(instance, properties, context) {
   let startX, startY, startW, startH, startT, startL;
 
   const startDragging = (e) => {
-    if (!selectedPostIt || !boardConfig.editable) return;
+    if (!hasSelectedPostItAndAllowEdit()) return;
 
     startX = e.clientX;
     startY = e.clientY;
@@ -384,12 +401,11 @@ function(instance, properties, context) {
   const setupPostItEvents = (postIt, id) => {
     // Unified selection/focus handler
     const selectPostIt = (e) => {
-
-      if (!boardConfig.editable && !boardConfig.styleEditable) {
+      if (!boardConfig.allowEdit) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
-      isUpdating = true;
+
       const alreadySelected = selectedPostIt === postIt;
 
       if (!alreadySelected && selectedPostIt) {
@@ -404,7 +420,7 @@ function(instance, properties, context) {
       selectedPostIt.style.zIndex = 1000; // Bring to front  
 
       focusPostItContent(postIt);
-      updateOverlay(selectedPostIt);
+      updateResizeBoxAndEditActions(selectedPostIt);
       startX = postIt.offsetLeft;
       startY = postIt.offsetTop;
       publishStates(id, postIt.innerText, selectedPostItData.customStyle);
@@ -436,7 +452,9 @@ function(instance, properties, context) {
     });
 
     postIt.addEventListener("mousedown", (e) => {
-      if (!boardConfig.editable) {
+      const isAlreadySelected = selectedPostIt === postIt;
+      // if a PostIt is the brand-new created, allow to edit text
+      if (!hasSelectedPostItAndAllowEdit() && !(boardConfig.allowCreation && isAlreadySelected)) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
@@ -446,15 +464,8 @@ function(instance, properties, context) {
       postIt.style.cursor = "grabbing";
       postIt.setAttribute("data-original-z-index", postIt.style.zIndex || "auto");
       postIt.style.zIndex = 1000;
-      // Temporarily disable content editing during drag
-      if (document.activeElement === postIt) {
-        // Save selection for later
-        const savedSelection = window.getSelection();
-        postIt.setAttribute('data-had-focus', 'true');
-        postIt.blur();
-      }
 
-      if (selectedPostIt !== postIt) {
+      if (!isAlreadySelected) {
         clearSelection();
       } else {
         editTextMode = true;
@@ -467,11 +478,11 @@ function(instance, properties, context) {
       selectedPostItData = postItsData.get(id);
 
       startDragging(e);
-      updateOverlay(postIt);
+      updateResizeBoxAndEditActions(postIt);
     });
 
     document.addEventListener("mousemove", (e) => {
-      if (!selectedPostIt) return;
+      if (!hasSelectedPostItAndAllowEdit()) return;
 
       let dx = e.clientX - startX;
       let dy = e.clientY - startY;
@@ -503,7 +514,7 @@ function(instance, properties, context) {
         selectedPostIt.style.height = height;
         selectedPostIt.style.top = y;
         selectedPostIt.style.left = x;
-        updateOverlay(selectedPostIt);
+        updateResizeBoxAndEditActions(selectedPostIt);
         Logger.log('POSTIT - Mouse Move', selectedPostIt.style.width, selectedPostIt.style.height, selectedPostItData)
         if (selectedPostItData?.customStyle) {
           selectedPostItData.customStyle.width = selectedPostIt.style.width;
@@ -534,7 +545,7 @@ function(instance, properties, context) {
           selectedPostItData.customStyle.top = selectedPostIt.style.top;
           selectedPostItData.customStyle.left = selectedPostIt.style.left;
           Logger.log('POSTIT - Mouse DRAGGING - has custom Style', performance.now(), selectedPostItData)
-          updateOverlay(selectedPostIt);
+          updateResizeBoxAndEditActions(selectedPostIt);
         }
 
       }
@@ -752,6 +763,7 @@ function(instance, properties, context) {
       deleteBtn.style.display = "none";
       instance.publishState("postItId", selectedPostIt.getAttribute("data-postit-id"));
       instance.triggerEvent("postItDeleted");
+      clearStates()
     }
   });
 
@@ -858,7 +870,7 @@ function(instance, properties, context) {
     handles.bottomright.style.right = "-5px";
   }
 
-  function updateOverlay(el) {
+  function updateResizeBoxAndEditActions(el) {
     // temporary settings
     resizeBox.style.display = "block";
     resizeBox.style.top = selectedPostItData?.customStyle?.top;
@@ -867,9 +879,12 @@ function(instance, properties, context) {
     resizeBox.style.height = selectedPostItData?.customStyle?.height;
 
 
-    deleteBtn.style.top = (el.offsetTop - 25) + "px";
-    deleteBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
-    deleteBtn.style.display = "block";
+    if (boardConfig.allowEdit) {
+      deleteBtn.style.top = (el.offsetTop - 25) + "px";
+      deleteBtn.style.left = (el.offsetLeft + el.offsetWidth - 30) + "px";
+      deleteBtn.style.display = "block";
+    }
+
     selectedPostIt.contentEditable = editTextMode;
 
     positionHandles();
@@ -906,7 +921,7 @@ function(instance, properties, context) {
   Object.values(handles).forEach(h => {
     h.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      if (!selectedPostIt) return;
+      if (!selectedPostIt || !boardConfig.allowEdit) return;
 
       resizing = true;
       currentHandle = h.dataset.handle;
@@ -929,7 +944,7 @@ function(instance, properties, context) {
 
       if (isUpdating) return;
 
-      if (!boardConfig.editable) {
+      if (!boardConfig.allowCreation) {
         console.warn("⚠️ Board is not editable. Skipping post-it creation.");
         return;
       }
@@ -962,7 +977,7 @@ function(instance, properties, context) {
         selectedPostIt = postIt;
         Logger.log('BOARD - Click', selectedPostItData)
         selectedPostItData = newPostItData;
-        updateOverlay(selectedPostIt)
+        updateResizeBoxAndEditActions(selectedPostIt)
         Object.assign(postIt.style, getSelectionStyle());
         setTimeout(() => focusPostItContent(postIt), 50);
         triggerPostItUpdate(newId, true);
@@ -973,16 +988,16 @@ function(instance, properties, context) {
     });
 
     document.addEventListener("click", (event) => {
-      if (event.target.dataset.scope !== 'postIt-plugin') {
-        clearSelection();
-        resetResizeBox();
+      if (event.target === board || event.target.dataset.scope === 'postIt-plugin') {
+        return
       }
-
+      clearSelection();
+      resetResizeBox();
     })
 
     // Delete selected post-it with DEL key
     document.addEventListener("keydown", (e) => {
-      if (!boardConfig.editable) {
+      if (!boardConfig.allowEdit) {
         console.warn("⚠️ Board is not editable. Skipping post-it deletion.");
         return;
       }
@@ -1001,6 +1016,7 @@ function(instance, properties, context) {
 
         instance.publishState("postItId", id);
         instance.triggerEvent("postItDeleted");
+        clearStates();
       }
     });
 
@@ -1014,13 +1030,14 @@ function(instance, properties, context) {
       selectedPostIt.style.zIndex = 500;
       selectedPostIt = null;
     }
+    clearStates();
   }
 
-  document.addEventListener("PostIt-config", (event) => {
+  document.addEventListener("PostIt-editable-config", (event) => {
     if (event.detail && typeof event.detail === 'object') {
-      boardConfig.editable = event.detail.editable !== undefined ? event.detail.editable : boardConfig.editable;
-      boardConfig.styleEditable = event.detail.styleEditable !== undefined ? event.detail.styleEditable : boardConfig.styleEditable;
-      if (!boardConfig.editable && !boardConfig.styleEditable) {
+      boardConfig.allowCreation = event.detail.allowCreation !== undefined ? event.detail.allowCreation : boardConfig.allowCreation;
+      boardConfig.allowEdit = event.detail.allowEdit !== undefined ? event.detail.allowEdit : boardConfig.allowEdit;
+      if (!boardConfig.allowCreation && !boardConfig.allowEdit) {
         resetResizeBox();
       }
     }
@@ -1035,13 +1052,25 @@ function(instance, properties, context) {
     boardRectangle = undefined;
   });
 
+  const clearDeletedPostIt = (postIds) => {
+    postIds?.forEach((id) => {
+      postItElements[id]?.remove()
+      delete postItElements[id]
+      delete postItsData[id]
+    })
+  }
+
 
   const updatePostItBoard = (existingPostItObjects) => {
-    loadPostItData(existingPostItObjects, true);
+    const loadedResult = loadPostItData(existingPostItObjects, true);
     selectedPostItData = postItsData.get(selectedPostIt?.getAttribute("data-postit-id"));
     postItsData.forEach(postItData => {
       createPostIt(postItData)
     })
+    if (loadedResult?.deletedIds?.size > 0) {
+      clearDeletedPostIt(loadedResult.deletedIds);
+      resetResizeBox()
+    }
   }
 
   // Main execution
