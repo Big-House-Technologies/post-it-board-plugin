@@ -123,7 +123,7 @@ function(instance, properties, context) {
   let isUpdating = false;
 
   const publishStates = (id, text, customStyle, timeChange) => {
-    Logger.log('CHANGE - PUBLISH STATE', customStyle)
+    Logger.log('CHANGE - PUBLISH STATE', id, text, customStyle, timeChange)
     instance.publishState("customStyle", JSON.stringify(customStyle ?? {}));
     instance.publishState("postItText", text);
     instance.publishState("postItId", id);
@@ -201,11 +201,11 @@ function(instance, properties, context) {
           try {
             const data = JSON.parse(str);
 
-            Logger.log('Selected PostIt Data', selectedPostItData?.id, selectedPostIt, isDynamicUpdate)
+            // Logger.log('Selected PostIt Data', selectedPostItData?.id, selectedPostIt, isDynamicUpdate)
             deletedIds.delete(data.postItId)
             if (data && data.postItId) {
               const exisitngPostIt = postItsData?.get(data.postItId)
-              Logger.log('TIME CHANGE', data.postItId, data.timeChange, exisitngPostIt?.timeChange)
+              // Logger.log('TIME CHANGE', data.postItId, data.timeChange, exisitngPostIt?.timeChange)
               if (isDynamicUpdate && data.timeChange && data.timeChange < exisitngPostIt?.timeChange) {
                 Logger.log('NOT UPDATE')
                 return;
@@ -282,9 +282,11 @@ function(instance, properties, context) {
       selectedPostIt.style.zIndex = 500;
       // Reset text
       selectedPostIt.contentEditable = false;
-      if (selectedPostItData) {
-        selectedPostItData.innerText = selectedPostItData.text
+      if (selectedPostItData && selectedPostIt.innerText != selectedPostItData.text) {
+        Logger.log('[Event] Clear selection', selectedPostIt)
+        selectedPostItData.text = selectedPostIt.innerText
         updateText(selectedPostIt, selectedPostItData.id, selectedPostIt.innerText);
+        
       }
       
       selectedPostIt = null;
@@ -371,6 +373,7 @@ function(instance, properties, context) {
 
   const updateText = (postIt, postItId, text) => {
     if (!postIt || !postItId) return;
+    Logger.log('[Event] Update Text', selectedPostIt)
     updatePostItData(postItId, { text });
     triggerPostItUpdate(postItId);
   };
@@ -383,6 +386,7 @@ function(instance, properties, context) {
 
   let resizing = false;
   let dragging = false;
+  let moving = false;
   let currentHandle = null;
   let startX, startY, startW, startH, startT, startL;
 
@@ -423,7 +427,6 @@ function(instance, properties, context) {
       updateResizeBoxAndEditActions(selectedPostIt);
       startX = postIt.offsetLeft;
       startY = postIt.offsetTop;
-      publishStates(id, postIt.innerText, selectedPostItData.customStyle);
       if (selectedPostItData) {
         document.dispatchEvent(new CustomEvent('PostIt-selected-publishStyle', {
           detail: convertToPixelValue(selectedPostItData.customStyle)
@@ -483,7 +486,11 @@ function(instance, properties, context) {
 
     document.addEventListener("mousemove", (e) => {
       if (!hasSelectedPostItAndAllowEdit()) return;
-
+      if (dragging) {
+        // Start moving
+        moving = true
+      }
+      
       let dx = e.clientX - startX;
       let dy = e.clientY - startY;
 
@@ -537,7 +544,7 @@ function(instance, properties, context) {
         if (selectedPostItData) {
           Logger.log("DRAGGING - position - before", newLeft, newTop, selectedPostItData.customStyle.width, selectedPostItData.customStyle.height)
           const newPosition = decidePostItPosition(newLeft, newTop,
-            selectedPostItData.customStyle.width, selectedPostItData.customStyle.height);
+          selectedPostItData.customStyle.width, selectedPostItData.customStyle.height);
           Logger.log("DRAGGING - position - after", newLeft, newTop, newPosition.width, newPosition.height)
 
           selectedPostIt.style.left = newPosition.x;
@@ -553,9 +560,11 @@ function(instance, properties, context) {
 
     // === Mouse up ===
     document.addEventListener("mouseup", () => {
-      if (resizing || dragging) {
+      if (resizing || (dragging && moving)) {
+        Logger.log('Mouse Up - ', resizing, dragging)
         resizing = false;
         dragging = false;
+        moving = false;
 
         if (selectedPostItData) {
           triggerPostItUpdateWithData(selectedPostItData);
@@ -564,6 +573,10 @@ function(instance, properties, context) {
           }));
         }
 
+      } else {
+        resizing = false;
+        dragging = false;
+        moving = false;
       }
     });
   };
@@ -980,7 +993,7 @@ function(instance, properties, context) {
         updateResizeBoxAndEditActions(selectedPostIt)
         Object.assign(postIt.style, getSelectionStyle());
         setTimeout(() => focusPostItContent(postIt), 50);
-        triggerPostItUpdate(newId, true);
+        setTimeout(() => triggerPostItUpdate(newId, true), 100);
         document.dispatchEvent(new CustomEvent('PostIt-selected-publishStyle', {
           detail: convertToPixelValue(selectedPostItData.customStyle),
         }));
