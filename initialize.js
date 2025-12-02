@@ -93,7 +93,7 @@ function(instance, context) {
         colorBox.dataset.type = 'color-picker';
 
         // Popup container
-        const popup = document.createElement('div');;
+        const popup = document.createElement('div');
         popup.setAttribute('data-scope', 'postIt-plugin');
         popup.style.position = 'absolute';
         popup.style.top = '50px';
@@ -109,7 +109,7 @@ function(instance, context) {
         popup.style.zIndex = '1000';
 
         // Color palette (general colors)
-        const colors = ['green', 'red', 'blue', 'black', 'orange', 'purple'];
+        const colors = ['green', 'red', 'blue', 'black', 'orange', 'purple', 'white'];
         const paletteRow = document.createElement('div');;
         paletteRow.setAttribute('data-scope', 'postIt-plugin');
         paletteRow.style.display = 'flex';
