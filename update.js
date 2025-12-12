@@ -431,8 +431,10 @@ function(instance, properties, context) {
         document.dispatchEvent(new CustomEvent('PostIt-selected-publishStyle', {
           detail: convertToPixelValue(selectedPostItData.customStyle)
         }));
+        publishStates(id, selectedPostItData?.text, selectedPostItData?.customStyle, selectedPostItData?.timeChange)
       }
 
+      
       e?.stopPropagation();
     };
 
